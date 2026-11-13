@@ -4,3 +4,7 @@ dist/
 .idea/
 *.iml
 .vscode/
+
+# Variables locales de Vite
+*.local
+dev-dist/
