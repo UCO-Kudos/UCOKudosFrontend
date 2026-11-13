@@ -1,0 +1,72 @@
+name: CI-CD frontend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm test --if-present -- --run
+      - run: npm run build
+
+      - name: SonarQube Cloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          npx --yes sonarqube-scanner
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.organization=${{ vars.SONAR_ORG }}
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.sources=src
+          -Dsonar.token=$SONAR_TOKEN
+
+      - name: Trivy (código y dependencias)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          format: table
+
+      - name: Trivy (bloquea CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL
+          exit-code: '1'
+
+  cd:
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar despliegue en Vercel (Deploy Hook)
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
+
+      - name: Probar la URL pública
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          sleep 60
+          curl -fsS -o /dev/null "$APP_URL" && echo "Frontend responde"
