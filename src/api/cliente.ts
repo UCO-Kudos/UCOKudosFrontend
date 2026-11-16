@@ -1,5 +1,6 @@
 // Cliente HTTP del backend. Solo usa los endpoints del contrato
-// (docs/11-modelo-de-datos-y-api.md): login, categorías, destinatarios y publicar Kudo.
+// (docs/11-modelo-de-datos-y-api.md): login, categorías, destinatarios, publicar Kudo
+// e historial de Kudos.
 
 export interface RespuestaLogin {
   token: string
@@ -23,6 +24,17 @@ export interface KudoCreado {
   creadoEn: string
   adjuntos: number
   traceId: string
+}
+
+/** Un Kudo del historial del usuario: lo recibió (RECIBIDO) o lo envió (ENVIADO). */
+export interface KudoResumen {
+  id: string
+  direccion: 'RECIBIDO' | 'ENVIADO'
+  autor: string
+  destinatario: string
+  categoria: string
+  texto: string
+  creadoEn: string
 }
 
 export interface NuevoKudo {
@@ -125,6 +137,11 @@ export function categorias(token: string): Promise<Categoria[]> {
 /** GET /personas/destinatarios (Bearer) */
 export function destinatarios(token: string): Promise<Destinatario[]> {
   return pedir<Destinatario[]>('/personas/destinatarios', { headers: conToken(token) })
+}
+
+/** GET /kudos (Bearer): historial de Kudos recibidos y enviados por el usuario */
+export function kudos(token: string): Promise<KudoResumen[]> {
+  return pedir<KudoResumen[]>('/kudos', { headers: conToken(token) })
 }
 
 /** POST /kudos multipart: destinatarioId, categoriaId, contenido, adjuntos[] → 201 */

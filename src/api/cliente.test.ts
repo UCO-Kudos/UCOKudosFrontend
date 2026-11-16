@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ErrorApi, login } from './cliente'
+import { ErrorApi, kudos, login } from './cliente'
 
 function respuestaJson(cuerpo: unknown, status: number, tipo = 'application/json') {
   return new Response(JSON.stringify(cuerpo), { status, headers: { 'Content-Type': tipo } })
@@ -45,5 +45,40 @@ describe('cliente de API · login', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(login('a@uco.edu.co', 'x')).rejects.toThrow('No se pudo conectar con el servidor')
+  })
+})
+
+describe('cliente de API · kudos', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_API_URL', 'http://api.prueba/api/')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('pide GET /kudos con la cabecera Authorization Bearer y devuelve la lista', async () => {
+    const lista = [
+      {
+        id: 'k-1',
+        direccion: 'RECIBIDO',
+        autor: 'Ana Pérez',
+        destinatario: 'Luis Gómez',
+        categoria: 'Trabajo en equipo',
+        texto: '¡Gracias por tu ayuda!',
+        creadoEn: '2026-11-16T15:00:00Z',
+      },
+    ]
+    const fetchSimulado = vi.fn().mockResolvedValue(respuestaJson(lista, 200))
+    vi.stubGlobal('fetch', fetchSimulado)
+
+    const respuesta = await kudos('jwt-123')
+
+    expect(respuesta).toEqual(lista)
+    const [url, opciones] = fetchSimulado.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://api.prueba/api/kudos')
+    expect(opciones.method).toBeUndefined() // sin método explícito = GET
+    expect(opciones.headers).toMatchObject({ Authorization: 'Bearer jwt-123' })
   })
 })
